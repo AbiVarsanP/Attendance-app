@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { UserPlus, Mail, Lock, Hash } from 'lucide-react';
-import useFetch from '../hooks/useFetch';
+import useFetch, { invalidateCache } from '../hooks/useFetch';
 import CommonNavbar from '../components/CommonNavbar';
+import ConfirmDialog from '../components/ConfirmDialog';
 import BackButton from '../components/BackButton';
 import StudentRow from '../components/StudentRow';
 import api from '../services/api';
@@ -30,48 +31,92 @@ export default function AdminStudents() {
     setName(''); setEmail(''); setPassword(''); setRegisterNumber('');
   };
 
+  const [pendingEdit, setPendingEdit] = useState<any | null>(null);
+
   const submit = async (e: any) => {
     e.preventDefault();
+    // If editing, show confirmation dialog before applying edits
+    if (editingId) {
+      setPendingEdit({ id: editingId, name, email, password: password || undefined, register_number: registerNumber });
+      return;
+    }
     try {
-      if (editingId) {
-        await api.put(`/admin/students/${editingId}`, {
-          name,
-          email,
-          password: password || undefined,
-          register_number: registerNumber,
-        });
-      } else {
-        await api.post('/admin/students', {
-          name,
-          email,
-          password,
-          register_number: registerNumber,
-        });
-      }
+      await api.post('/admin/students', {
+        name,
+        email,
+        password,
+        register_number: registerNumber,
+      });
+      // invalidate cache and reload
+      invalidateCache('/admin/students');
+      setReload((r) => r + 1);
       setName('');
       setEmail('');
       setPassword('');
       setRegisterNumber('');
-      setReload((r) => r + 1);
-      setEditingId(null);
-      alert(editingId ? 'Student updated' : 'Student created');
+      alert('Student created');
     } catch (err: any) {
       alert(err?.response?.data?.error || 'Failed to create student');
     }
   };
 
-  const handleDelete = async (student: any) => {
-    if (!confirm(`Delete student ${student.user?.name || student.id}? This cannot be undone.`)) return;
+  const confirmEdit = async () => {
+    if (!pendingEdit) return;
     try {
-      await api.delete(`/admin/students/${student.id}`);
+      await api.put(`/admin/students/${pendingEdit.id}`, {
+        name: pendingEdit.name,
+        email: pendingEdit.email,
+        password: pendingEdit.password || undefined,
+        register_number: pendingEdit.register_number,
+      });
+      invalidateCache('/admin/students');
+      setReload(r => r + 1);
+      setName(''); setEmail(''); setPassword(''); setRegisterNumber('');
+      setEditingId(null);
+      alert('Student updated');
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Update failed');
+    }
+    setPendingEdit(null);
+  };
+
+  const handleDelete = async (student: any) => {
+    // show confirm dialog
+    setPendingDelete(student);
+  };
+
+  const [pendingDelete, setPendingDelete] = useState<any | null>(null);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    try {
+      await api.delete(`/admin/students/${pendingDelete.id}`);
+      invalidateCache('/admin/students');
       setReload(r => r + 1);
       alert('Deleted');
     } catch (e:any) { alert(e?.response?.data?.error || 'Delete failed'); }
+    setPendingDelete(null);
   };
 
   return (
     <div className="min-h-screen bg-slate-100">
       <CommonNavbar title="Attendance Admin" subtitle="Students" />
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete Student"
+        description={pendingDelete ? `Delete student ${pendingDelete.user?.name || pendingDelete.id}? This cannot be undone.` : ''}
+        confirmText="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
+      <ConfirmDialog
+        open={!!pendingEdit}
+        title="Confirm Edit"
+        description={pendingEdit ? `Apply changes to ${pendingEdit.name || pendingEdit.id}?` : ''}
+        confirmText="Apply"
+        onConfirm={confirmEdit}
+        onCancel={() => setPendingEdit(null)}
+      />
       <main className="max-w-6xl mx-auto px-4 py-6">
         <BackButton />
         {/* Header */}

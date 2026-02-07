@@ -84,6 +84,16 @@ export const markAttendance = async (req: Request, res: Response) => {
   }
 };
 
+export const attendanceByDate = async (req: Request, res: Response) => {
+  try {
+    const date = req.query.date as string | undefined;
+    const records = await attendanceService.findByDate(date);
+    res.json(records);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 export const dailySummary = async (req: Request, res: Response) => {
   const date = req.query.date as string | undefined;
   const summary = await attendanceService.dailySummary(date);

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireRole } from '../middleware/roles';
-import { createStudent, markAttendance, dailySummary, studentAnalytics, listStudents, updateStudent, deleteStudent, weeklySummary, monthlySummary } from '../controllers/adminController';
+import { createStudent, markAttendance, dailySummary, studentAnalytics, listStudents, updateStudent, deleteStudent, weeklySummary, monthlySummary, attendanceByDate } from '../controllers/adminController';
 
 const router = Router();
 
@@ -10,6 +10,7 @@ router.get('/students', listStudents);
 router.put('/students/:studentId', updateStudent);
 router.delete('/students/:studentId', deleteStudent);
 router.post('/attendance/mark', markAttendance);
+router.get('/attendance', attendanceByDate);
 router.get('/analytics/daily', dailySummary);
 router.get('/analytics/student/:studentId', studentAnalytics);
 router.get('/analytics/weekly', weeklySummary);

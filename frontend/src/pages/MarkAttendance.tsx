@@ -4,17 +4,26 @@ import useFetch from '../hooks/useFetch';
 import api from '../services/api';
 import CommonNavbar from '../components/CommonNavbar';
 import BackButton from '../components/BackButton';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function MarkAttendance() {
   const { data: students, loading } = useFetch('/admin/students', []);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const { data: attendanceRecords } = useFetch(`/admin/attendance?date=${date}`, [date]);
   const [batching, setBatching] = useState(false);
   const [markingIds, setMarkingIds] = useState<string[]>([]);
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, 'present' | 'absent'>>({});
 
   const mark = async (
     studentId: string,
     status: 'present' | 'absent' = 'present'
   ) => {
+    // If already marked differently, ask for confirmation to re-mark
+    const existing = attendanceMap[studentId];
+    if (existing && existing !== status) {
+      setPendingRemark({ studentId, status });
+      return;
+    }
     try {
       setMarkingIds((s) => [...s, studentId]);
       await api.post('/admin/attendance/mark', {
@@ -22,12 +31,23 @@ export default function MarkAttendance() {
         date,
         status,
       });
+      // update local attendance map so UI reflects current status
+      setAttendanceMap((m) => ({ ...m, [studentId]: status }));
       // success - remove from markingIds
       setMarkingIds((s) => s.filter((id) => id !== studentId));
     } catch (e: any) {
       setMarkingIds((s) => s.filter((id) => id !== studentId));
       alert(e?.response?.data?.error || 'Error');
     }
+  };
+
+  const [pendingRemark, setPendingRemark] = React.useState<{ studentId: string; status: 'present' | 'absent' } | null>(null);
+
+  const confirmRemark = async () => {
+    if (!pendingRemark) return;
+    const { studentId, status } = pendingRemark;
+    setPendingRemark(null);
+    await mark(studentId, status);
   };
 
   const markAllPresent = async () => {
@@ -47,6 +67,13 @@ export default function MarkAttendance() {
       }, []);
       if (failed.length === 0) alert('All students marked present');
       else alert(`${failed.length} / ${ids.length} failed to mark`);
+      // update attendance map for successes
+      const successIds = ids.filter((id) => !failed.includes(id));
+      setAttendanceMap((m) => {
+        const copy = { ...m } as Record<string, 'present' | 'absent'>;
+        successIds.forEach((id) => { copy[id] = 'present'; });
+        return copy;
+      });
     } catch (err) {
       alert('Batch marking failed');
     } finally {
@@ -54,6 +81,21 @@ export default function MarkAttendance() {
       setBatching(false);
     }
   };
+
+  // when date changes, clear local attendanceMap so statuses reflect current date
+  React.useEffect(() => {
+    // populate attendanceMap from fetched records for the selected date
+    if (attendanceRecords && Array.isArray(attendanceRecords)) {
+      const map: Record<string, 'present' | 'absent'> = {};
+      attendanceRecords.forEach((r: any) => {
+        if (r && r.student_id && r.status) map[r.student_id] = r.status;
+      });
+      setAttendanceMap(map);
+    } else {
+      setAttendanceMap({});
+    }
+    setMarkingIds([]);
+  }, [date, attendanceRecords]);
 
   if (loading)
     return (
@@ -111,6 +153,14 @@ export default function MarkAttendance() {
             Mark All Present
           </button>
         </div>
+        <ConfirmDialog
+          open={!!pendingRemark}
+          title="Re-mark Attendance"
+          description={pendingRemark ? `This student is already marked for ${date}. Do you want to change the mark to ${pendingRemark.status}?` : ''}
+          confirmText="Re-mark"
+          onConfirm={confirmRemark}
+          onCancel={() => setPendingRemark(null)}
+        />
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           {students?.map((s: any) => (
             <div
@@ -132,7 +182,12 @@ export default function MarkAttendance() {
                 <button
                   onClick={() => mark(s.id, 'present')}
                   disabled={markingIds.includes(s.id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 text-sm transition disabled:opacity-50"
+                  className={
+                    `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition disabled:opacity-50 ` +
+                    (attendanceMap[s.id] === 'present'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-green-50 text-green-700 hover:bg-green-100')
+                  }
                 >
                   <CheckCircle size={16} />
                   {markingIds.includes(s.id) ? 'Marking...' : 'Present'}
@@ -141,7 +196,12 @@ export default function MarkAttendance() {
                 <button
                   onClick={() => mark(s.id, 'absent')}
                   disabled={markingIds.includes(s.id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-sm transition disabled:opacity-50"
+                  className={
+                    `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition disabled:opacity-50 ` +
+                    (attendanceMap[s.id] === 'absent'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-red-50 text-red-700 hover:bg-red-100')
+                  }
                 >
                   <XCircle size={16} />
                   {markingIds.includes(s.id) ? 'Marking...' : 'Absent'}

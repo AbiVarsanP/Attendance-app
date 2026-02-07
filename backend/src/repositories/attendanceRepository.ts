@@ -11,6 +11,11 @@ export const attendanceRepository = {
     if (error) throw error;
     return data;
   },
+  async updateByStudentAndDate(student_id: string, date: string, status: 'present' | 'absent') {
+    const { data, error } = await supabase.from('attendance').update({ status }).eq('student_id', student_id).eq('date', date).select('*').maybeSingle();
+    if (error) throw error;
+    return data;
+  },
   async findByStudent(student_id: string) {
     const { data, error } = await supabase.from('attendance').select('*').eq('student_id', student_id).order('date', { ascending: false });
     if (error) throw error;
@@ -24,6 +29,12 @@ export const attendanceRepository = {
     const present = data.filter((r: any) => r.status === 'present').length;
     const absent = data.filter((r: any) => r.status === 'absent').length;
     return { date: day, present, absent };
+  },
+  async findByDate(date?: string) {
+    const day = date || new Date().toISOString().slice(0, 10);
+    const { data, error } = await supabase.from('attendance').select('student_id, status').eq('date', day);
+    if (error) throw error;
+    return data || [];
   },
   async summaryForPeriod(period: 'week' | 'month') {
     const now = new Date();
