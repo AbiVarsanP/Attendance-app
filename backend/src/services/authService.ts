@@ -6,8 +6,14 @@ import { studentRepository } from '../repositories/studentRepository';
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 export const authService = {
-  async login(email: string, password: string) {
-    const user = await userRepository.findByEmail(email);
+  async login(identifier: string, password: string) {
+    // identifier can be email or register_number
+    let user = await userRepository.findByEmail(identifier);
+    // if not found by email, try register number -> get student -> user
+    if (!user) {
+      const student = await studentRepository.findByRegisterNumber(identifier);
+      if (student) user = await userRepository.findById(student.user_id);
+    }
     if (!user) throw new Error('Invalid credentials');
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) throw new Error('Invalid credentials');

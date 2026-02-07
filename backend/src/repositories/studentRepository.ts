@@ -23,6 +23,11 @@ export const studentRepository = {
     if (error) throw error;
     return data;
   },
+  async findByRegisterNumber(register_number: string) {
+    const { data, error } = await supabase.from('students').select('*').eq('register_number', register_number).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
   async update(id: string, payload: any) {
     const { data, error } = await supabase.from('students').update(payload).eq('id', id).select('*').single();
     if (error) throw error;

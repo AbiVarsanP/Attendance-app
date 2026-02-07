@@ -8,20 +8,50 @@ import BackButton from '../components/BackButton';
 export default function MarkAttendance() {
   const { data: students, loading } = useFetch('/admin/students', []);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [batching, setBatching] = useState(false);
+  const [markingIds, setMarkingIds] = useState<string[]>([]);
 
   const mark = async (
     studentId: string,
     status: 'present' | 'absent' = 'present'
   ) => {
     try {
+      setMarkingIds((s) => [...s, studentId]);
       await api.post('/admin/attendance/mark', {
         student_id: studentId,
         date,
         status,
       });
-      alert('Marked');
+      // success - remove from markingIds
+      setMarkingIds((s) => s.filter((id) => id !== studentId));
     } catch (e: any) {
+      setMarkingIds((s) => s.filter((id) => id !== studentId));
       alert(e?.response?.data?.error || 'Error');
+    }
+  };
+
+  const markAllPresent = async () => {
+    if (!students || students.length === 0) return;
+    if (!confirm(`Mark all ${students.length} students as present for ${date}?`)) return;
+    setBatching(true);
+    const ids = students.map((s: any) => s.id);
+    setMarkingIds(ids);
+    try {
+      const promises = ids.map((studentId: string) =>
+        api.post('/admin/attendance/mark', { student_id: studentId, date, status: 'present' })
+      );
+      const results = await Promise.allSettled(promises);
+      const failed = results.reduce((acc: string[], r, i) => {
+        if (r.status === 'rejected') acc.push(ids[i]);
+        return acc;
+      }, []);
+      if (failed.length === 0) alert('All students marked present');
+      else alert(`${failed.length} / ${ids.length} failed to mark`);
+    } catch (err) {
+      alert('Batch marking failed');
+    } finally {
+      setMarkingIds([]);
+      setBatching(false);
     }
   };
 
@@ -72,6 +102,15 @@ export default function MarkAttendance() {
         </div>
 
         {/* Student List */}
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={markAllPresent}
+            disabled={batching}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm transition"
+          >
+            Mark All Present
+          </button>
+        </div>
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           {students?.map((s: any) => (
             <div
@@ -92,18 +131,20 @@ export default function MarkAttendance() {
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => mark(s.id, 'present')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 text-sm transition"
+                  disabled={markingIds.includes(s.id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 text-sm transition disabled:opacity-50"
                 >
                   <CheckCircle size={16} />
-                  Present
+                  {markingIds.includes(s.id) ? 'Marking...' : 'Present'}
                 </button>
 
                 <button
                   onClick={() => mark(s.id, 'absent')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-sm transition"
+                  disabled={markingIds.includes(s.id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 text-sm transition disabled:opacity-50"
                 >
                   <XCircle size={16} />
-                  Absent
+                  {markingIds.includes(s.id) ? 'Marking...' : 'Absent'}
                 </button>
               </div>
             </div>

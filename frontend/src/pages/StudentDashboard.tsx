@@ -35,6 +35,9 @@ export default function StudentDashboard(){
   const auth = useAuth();
   const { data, loading } = useFetch('/student/analytics', []);
 
+  const studentUser = data?.user;
+  const studentProfile = data?.student;
+
   const weekly = data?.weekly || { percent: 0, present: 0, total: 0 };
   const monthly = data?.monthly || { percent: 0, present: 0, total: 0 };
 
@@ -56,6 +59,14 @@ export default function StudentDashboard(){
             <div>
               <h1 className="text-2xl font-bold">Student Dashboard</h1>
               <div className="text-sm text-gray-600">Welcome{auth?.role ? ` (${auth.role})` : ''}</div>
+              {studentUser && (
+                <div className="mt-1 text-sm text-slate-700">
+                  <span className="font-medium">{studentUser.name}</span>
+                  {studentProfile?.register_number && (
+                    <span className="ml-2 text-slate-500">Reg. No: {studentProfile.register_number}</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

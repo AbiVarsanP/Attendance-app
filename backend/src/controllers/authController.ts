@@ -2,9 +2,10 @@ import { Request, Response } from 'express';
 import { authService } from '../services/authService';
 
 export const login = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { email, password, register_number, identifier } = req.body;
+  const id = email || register_number || identifier;
   try {
-    const result = await authService.login(email, password);
+    const result = await authService.login(id, password);
     // result: { token, user }
     res.json(result);
   } catch (err: any) {

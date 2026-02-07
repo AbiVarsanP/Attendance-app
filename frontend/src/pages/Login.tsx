@@ -4,7 +4,7 @@ import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const auth = useAuth();
   const emailRef = useRef<HTMLInputElement | null>(null);
@@ -14,7 +14,7 @@ export default function Login() {
   const submit = async (e: any) => {
     e.preventDefault();
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { identifier, password });
       const { token, user } = res.data;
       auth.login(token, user.role);
       if (user.role === 'admin') window.location.href = '/admin';
@@ -41,15 +41,15 @@ export default function Login() {
 
           {/* Email */}
           <div className="mb-4">
-            <label className="text-sm font-medium text-slate-600">Email</label>
+            <label className="text-sm font-medium text-slate-600">Email or Reg. No.</label>
             <div className="mt-1 flex items-center gap-2 rounded-lg border border-slate-300 px-3 focus-within:ring-2 focus-within:ring-blue-500">
               <Mail className="text-slate-400" size={18} />
               <input
                 ref={emailRef}
                 className="w-full py-2 outline-none bg-transparent text-slate-800"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com or 12345"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
